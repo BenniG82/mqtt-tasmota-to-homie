@@ -21,6 +21,19 @@ export class ConvertToHomieService {
     private connect$$: Subject<void> = new Subject<void>();
     private messages$$: Subject<MessageInTopic> = new Subject<MessageInTopic>();
 
+    private static convertToMessageObject(messageInTopic: any, topic: string): any {
+        const message = messageInTopic.message;
+        const topicParts = topic.split('/');
+        const lastTopicPart = topicParts[topicParts.length - 1];
+        const messageObj: any = {};
+        const messageAsString = message.toString();
+        messageObj[lastTopicPart] = messageAsString.startsWith('{') && messageAsString.endsWith('}')
+            ? JSON.parse(messageAsString)
+            : messageAsString;
+
+        return messageObj;
+    }
+
     constructor(private readonly homieDevice: HomieDevice) {
         this.deviceTopic = homieDevice.$$homieTopic;
         this.connect(homieDevice);
@@ -75,7 +88,6 @@ export class ConvertToHomieService {
     }
 
     private publish(topic: string, value: string): void {
-        const subject = new Subject<boolean>();
         logger.debug(`Publishing to topic ${topic} => ${value}`);
         const valueAsString = value.toString();
         this.client.publish(topic, valueAsString, publishOptions, ((error: any) => {
@@ -119,7 +131,7 @@ export class ConvertToHomieService {
             .subscribe((messageInTopic: MessageInTopic) => {
                 const topic = messageInTopic.topic;
                 myLogger.debug(`Processing message ${messageInTopic.message} in topic ${topic}`);
-                const messageObj = this.convertToMessageObject(messageInTopic, topic);
+                const messageObj = ConvertToHomieService.convertToMessageObject(messageInTopic, topic);
 
                 const device = this.homieDevice;
 
@@ -135,26 +147,13 @@ export class ConvertToHomieService {
                                     myLogger.debug(`Value to lookup ${valueToLookup} resolved to ${value} at ${attributeKey}`);
                                     if (value) {
                                         const targetTopic = `${this.deviceTopic}/${nodeKey}/${attributeKey}`;
-                                        attribute.$$lastKnown = value;
+                                        // attribute.$$lastKnown = value;
                                         this.publish(targetTopic, value);
                                     }
                                 }
                             });
                     });
             });
-    }
-
-    private convertToMessageObject(messageInTopic: any, topic: string): any {
-        const message = messageInTopic.message;
-        const topicParts = topic.split('/');
-        const lastTopicPart = topicParts[topicParts.length - 1];
-        const messageObj: any = {};
-        const messageAsString = message.toString();
-        messageObj[lastTopicPart] = messageAsString.startsWith('{') && messageAsString.endsWith('}')
-            ? JSON.parse(messageAsString)
-            : messageAsString;
-
-        return messageObj;
     }
 
     private subscribeToCommands(): void {
@@ -166,7 +165,7 @@ export class ConvertToHomieService {
                     .forEach(propertyKey => {
                         const property = node[propertyKey];
                         if (property.$$command) {
-                            const topic = `${this.deviceTopic}/${nodeKey}/${propertyKey}`;
+                            const topic = `${this.deviceTopic}/${nodeKey}/${propertyKey}/set`;
                             this.commandMap[topic] = property;
                             this.client.subscribe(topic, (err: Error) => {
                                 myLogger.debug(`Subscription for ${topic}: ${err}`);
@@ -181,15 +180,11 @@ export class ConvertToHomieService {
         this.client.on('message', (topic, message) => {
             Object.keys(this.commandMap)
                 .forEach(commandMapTopic => {
-                    if (commandMapTopic === topic) {
+                    if (commandMapTopic === topic && message && message.length > 0) {
                         const property = this.commandMap[topic];
-                        if (property.$$lastKnown !== message.toLocaleString()) {
-                            myLogger.info(`Sending command from ${topic} to tasmota ${property.$$command}: ${message}`);
-                            this.client.publish(property.$$command, message);
-                        } else {
-                            // tslint:disable-next-line:max-line-length
-                            myLogger.info(`Omitting command from ${topic} to tasmota ${property.$$command}: ${message} because its already latest state`);
-                        }
+                        myLogger.info(`Sending command from ${topic} to tasmota ${property.$$command}: ${message}`);
+                        this.client.publish(property.$$command, message);
+                        this.client.publish(topic, '');
                     }
                 });
         });
