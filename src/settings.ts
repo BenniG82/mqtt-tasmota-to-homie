@@ -27,6 +27,14 @@ const SP111_PROPERTIES: HomieProperties = {
         $unit: 'W',
         $datatype: 'integer',
         $$value: '%SENSOR.ENERGY.Power%'
+    },
+    powerState: {
+        $name: 'Ein/Aus',
+        $settable: true,
+        $datatype: 'enum',
+        $format: 'ON,OFF,TOGGLE',
+        $$value: '%STATE.POWER%',
+        $$commandLeaf: 'POWER'
     }
 };
 
@@ -36,17 +44,10 @@ export const SONOFF_MAPPING: HomieDevices = {
         $name: 'Waschmaschine',
         $$homieTopic: 'homie/waschmaschine',
         $$sourceTopic: 'tele/sonoff/wama',
+        $$commandTopic: 'cmnd/sonoff/wama',
         $$nodes: {
             SP111: {
-                ...SP111_PROPERTIES,
-                powerState: {
-                    $name: 'Ein/Aus',
-                    $settable: true,
-                    $datatype: 'enum',
-                    $format: 'ON,OFF,TOGGLE',
-                    $$value: '%STATE.POWER%',
-                    $$command: 'cmnd/sonoff/wama/POWER'
-                }
+                ...SP111_PROPERTIES
             }
         }
     },
@@ -55,17 +56,10 @@ export const SONOFF_MAPPING: HomieDevices = {
         $name: 'Geschirrspüler',
         $$homieTopic: 'homie/geschirr',
         $$sourceTopic: 'tele/sonoff/geschirr',
+        $$commandTopic: 'cmnd/sonoff/geschirr',
         $$nodes: {
             SP111: {
-                ...SP111_PROPERTIES,
-                powerState: {
-                    $name: 'Ein/Aus',
-                    $settable: true,
-                    $datatype: 'enum',
-                    $format: 'ON,OFF,TOGGLE',
-                    $$value: '%STATE.POWER%',
-                    $$command: 'cmnd/sonoff/geschirr/POWER'
-                }
+                ...SP111_PROPERTIES
             }
         }
     },
@@ -74,17 +68,10 @@ export const SONOFF_MAPPING: HomieDevices = {
         $name: 'Luftentfeuchter',
         $$homieTopic: 'homie/luftentfeuchter',
         $$sourceTopic: 'tele/sonoff/luftentfeuchter',
+        $$commandTopic: 'cmnd/sonoff/luftentfeuchter',
         $$nodes: {
             SP111: {
-                ...SP111_PROPERTIES,
-                powerState: {
-                    $name: 'Ein/Aus',
-                    $settable: true,
-                    $datatype: 'enum',
-                    $format: 'ON,OFF,TOGGLE',
-                    $$value: '%STATE.POWER%',
-                    $$command: 'cmnd/sonoff/luftentfeuchter/POWER'
-                }
+                ...SP111_PROPERTIES
             }
         }
     }

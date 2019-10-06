@@ -164,7 +164,7 @@ export class ConvertToHomieService {
                 Object.keys(node)
                     .forEach(propertyKey => {
                         const property = node[propertyKey];
-                        if (property.$$command) {
+                        if (property.$$commandLeaf) {
                             const topic = `${this.deviceTopic}/${nodeKey}/${propertyKey}/set`;
                             this.commandMap[topic] = property;
                             this.client.subscribe(topic, (err: Error) => {
@@ -182,8 +182,11 @@ export class ConvertToHomieService {
                 .forEach(commandMapTopic => {
                     if (commandMapTopic === topic && message && message.length > 0) {
                         const property = this.commandMap[topic];
-                        myLogger.info(`Sending command from ${topic} to tasmota ${property.$$command}: ${message}`);
-                        this.client.publish(property.$$command, message);
+                        let commandEndpoint = `${this.homieDevice.$$commandTopic}/${property.$$commandLeaf}`;
+                        commandEndpoint = commandEndpoint.replace('//', '/');
+
+                        myLogger.info(`Sending command from ${topic} to tasmota ${commandEndpoint}: ${message}`);
+                        this.client.publish(commandEndpoint, message);
                         this.client.publish(topic, '');
                     }
                 });

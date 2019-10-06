@@ -21,7 +21,7 @@ export interface HomieProperty {
     $unit?: string;
     $format?: string;
     $$value: string;
-    $$command?: string;
+    $$commandLeaf?: string;
     $$lastKnown?: string;
 }
 
@@ -38,6 +38,7 @@ export interface HomieDevice {
     $name: string;
     $$homieTopic: string;
     $$sourceTopic: string;
+    $$commandTopic?: string;
     $$nodes: HomieNodes;
 }
 
