@@ -1,8 +1,7 @@
 import * as mqtt from 'mqtt';
-import { environment, SONOFF_MAPPING } from './settings';
 import { myLogger } from './logger';
 import { ConvertToHomieService } from './convert-to-homie.service';
-
+import { HomieDevices, MqttServerConfig, TasmotaMqttConfig } from './interfaces';
 
 export class SonoffTopicListener {
     static client: mqtt.MqttClient;
@@ -10,26 +9,26 @@ export class SonoffTopicListener {
 
     // static sonoff2mqttService: ConvertToHomieService;
 
-    static start(): void {
+    static start(tasmotaMqttConfig: TasmotaMqttConfig, homieMqttConfig: MqttServerConfig, tasmotaMapping: HomieDevices): void {
         myLogger.info('Starting Topic Listener');
-        SonoffTopicListener.client = mqtt.connect(environment.mqtt.brokerUrl, {
+        SonoffTopicListener.client = mqtt.connect(tasmotaMqttConfig.mqtt.brokerUrl, {
             clientId: 'Sonoff Topic Listener',
             keepalive: 60,
-            password: environment.mqtt.password,
-            username: environment.mqtt.username
+            password: tasmotaMqttConfig.mqtt.password,
+            username: tasmotaMqttConfig.mqtt.username
         });
         SonoffTopicListener.client.on('connect', () => {
             myLogger.info('Connected');
-            SonoffTopicListener.client.subscribe(environment.baseTasmotaTopic, (error: any) => {
+            SonoffTopicListener.client.subscribe(tasmotaMqttConfig.baseTasmotaTopic, (error: any) => {
                 myLogger.info('Subscription success');
                 if (error) {
                     myLogger.error(`Error: ${error}`);
                 }
             });
 
-            Object.keys(SONOFF_MAPPING)
+            Object.keys(tasmotaMapping)
                 .forEach(deviceKey => {
-                    const device = SONOFF_MAPPING[deviceKey];
+                    const device = tasmotaMapping[deviceKey];
                     if (!device.$$nodes || !device.$$sourceTopic) {
                         myLogger.warn(`Error processing ${deviceKey}, needed $$nodes and $$sourceTopic not found`);
 
@@ -37,7 +36,8 @@ export class SonoffTopicListener {
                     }
                     myLogger.info(`Setting up device ${deviceKey} on homie ${device.$$homieTopic}`);
                     const deviceTopic = device.$$sourceTopic;
-                    SonoffTopicListener.deviceToConverterMap[deviceTopic] = new ConvertToHomieService(device);
+                    SonoffTopicListener.deviceToConverterMap[deviceTopic] =
+                        new ConvertToHomieService(device, homieMqttConfig, SonoffTopicListener.client);
                 });
         });
         SonoffTopicListener.client.on('reconnect', () => {

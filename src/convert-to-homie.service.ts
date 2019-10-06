@@ -3,8 +3,7 @@ import * as _ from 'lodash';
 import { Subject, timer } from 'rxjs';
 import { take } from 'rxjs/internal/operators';
 import { myLogger } from './logger';
-import { environment } from './settings';
-import { HomieDevice, HomieNode, HomieProperty } from './interfaces';
+import { HomieDevice, HomieNode, HomieProperty, MqttServerConfig } from './interfaces';
 
 interface MessageInTopic {
     topic: string;
@@ -34,7 +33,9 @@ export class ConvertToHomieService {
         return messageObj;
     }
 
-    constructor(private readonly homieDevice: HomieDevice) {
+    constructor(private readonly homieDevice: HomieDevice,
+                private readonly homieMqttConfig: MqttServerConfig,
+                private readonly tasmotaMqttClient: mqtt.MqttClient) {
         this.deviceTopic = homieDevice.$$homieTopic;
         this.connect(homieDevice);
 
@@ -75,10 +76,10 @@ export class ConvertToHomieService {
     }
 
     private connect(device: HomieDevice): void {
-        this.client = mqtt.connect(environment.mqtt.brokerUrl, {
+        this.client = mqtt.connect(this.homieMqttConfig.brokerUrl, {
             clientId: `Sonoff Topic Publisher ${device.$$sourceTopic}`,
-            password: environment.mqtt.password,
-            username: environment.mqtt.username,
+            password: this.homieMqttConfig.password,
+            username: this.homieMqttConfig.username,
             will: {topic: `${this.deviceTopic}/$state`, payload: 'lost', qos: 1, retain: true}
         });
         this.client.on('connect', () => {
@@ -168,7 +169,7 @@ export class ConvertToHomieService {
                             const topic = `${this.deviceTopic}/${nodeKey}/${propertyKey}/set`;
                             this.commandMap[topic] = property;
                             this.client.subscribe(topic, (err: Error) => {
-                                myLogger.debug(`Subscription for ${topic}: ${err}`);
+                                myLogger.debug(`Subscription for ${topic}: ${err ? err : 'success'}`);
                             });
                         }
                     });
@@ -178,6 +179,7 @@ export class ConvertToHomieService {
 
     private initHomieMessages(): void {
         this.client.on('message', (topic, message) => {
+            myLogger.debug(`Received message in homie structure on topic ${topic}: ${message}`);
             Object.keys(this.commandMap)
                 .forEach(commandMapTopic => {
                     if (commandMapTopic === topic && message && message.length > 0) {
@@ -186,7 +188,7 @@ export class ConvertToHomieService {
                         commandEndpoint = commandEndpoint.replace('//', '/');
 
                         myLogger.info(`Sending command from ${topic} to tasmota ${commandEndpoint}: ${message}`);
-                        this.client.publish(commandEndpoint, message);
+                        this.tasmotaMqttClient.publish(commandEndpoint, message);
                         this.client.publish(topic, '');
                     }
                 });

@@ -1,13 +1,12 @@
-export interface Settings {
-    mqtt: {
-        brokerUrl: string;
-        clientId: string;
-        username: string;
-        password: string;
-        deviceTopicOneWire: string;
-    };
+export interface TasmotaMqttConfig {
+    mqtt: MqttServerConfig;
     baseTasmotaTopic: string;
-    baseHomieTopic: string;
+}
+
+export interface MqttServerConfig {
+    brokerUrl: string;
+    username: string;
+    password: string;
 }
 
 export interface HomieProperties {

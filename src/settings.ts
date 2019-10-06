@@ -1,44 +1,62 @@
-import { HomieDevices, HomieProperties, Settings } from './interfaces';
+import { HomieDevices, HomieNodes, MqttServerConfig, TasmotaMqttConfig } from './interfaces';
 
-export const environment: Settings = {
+/**
+ * Here we configure the mqtt server with the Tasmota topic layout
+ */
+export const tasmotaMqttConfig: TasmotaMqttConfig = {
     mqtt: {
         brokerUrl: 'mqtt://10.8.0.62',
-        clientId: 'TBD',
         username: 'mqtt',
-        password: 'password',
-        deviceTopicOneWire: 'homie/onewire2/'
+        password: 'password'
     },
-    baseTasmotaTopic: 'tele/sonoff/#',
-    baseHomieTopic: 'homie'
-
+    baseTasmotaTopic: 'tele/sonoff/#'
 };
 
-const SP111_PROPERTIES: HomieProperties = {
-    voltage: {
-        $name: 'Spannung',
-        $settable: false,
-        $unit: 'V',
-        $datatype: 'integer',
-        $$value: '%SENSOR.ENERGY.Voltage%'
-    },
-    power: {
-        $name: 'Leistung',
-        $settable: false,
-        $unit: 'W',
-        $datatype: 'integer',
-        $$value: '%SENSOR.ENERGY.Power%'
-    },
-    powerState: {
-        $name: 'Ein/Aus',
-        $settable: true,
-        $datatype: 'enum',
-        $format: 'ON,OFF,TOGGLE',
-        $$value: '%STATE.POWER%',
-        $$commandLeaf: 'POWER'
+/**
+ * Here we configure the mqtt server with the Homie topic layout, may be the same as the Tasmota mqtt server
+ */
+export const homieMqttConfig: MqttServerConfig = {
+    brokerUrl: 'mqtt://10.8.0.62',
+    username: 'mqtt',
+    password: 'password'
+};
+
+/**
+ * Here we configure the homie properties we want to access. This is a mapping of Tasmotas STATE or SENSOR Topics.
+ * You can access individual values from the state like this: '%SENSOR.ENERGY.Power%' or '%STATE.POWER%'.
+ * This configuration here is specific for the kind of device. e.g. a BlitzWolf SHP power switch
+ *
+ * Feel free to add all properties you want. If you configured a device other than BlitzWolf SHP,
+ * please share your configuration.
+ */
+const tasmotaNodeProperties: HomieNodes = {
+    blitzWolfShp: {
+        voltage: {
+            $name: 'Voltage',
+            $settable: false,
+            $unit: 'V',
+            $datatype: 'integer',
+            $$value: '%SENSOR.ENERGY.Voltage%'
+        },
+        power: {
+            $name: 'Power',
+            $settable: false,
+            $unit: 'W',
+            $datatype: 'integer',
+            $$value: '%SENSOR.ENERGY.Power%'
+        },
+        powerState: {
+            $name: 'Powerstate',
+            $settable: true,
+            $datatype: 'enum',
+            $format: 'ON,OFF,TOGGLE',
+            $$value: '%STATE.POWER%',
+            $$commandLeaf: 'POWER'
+        }
     }
 };
 
-export const SONOFF_MAPPING: HomieDevices = {
+export const tasmotaMapping: HomieDevices = {
     waschmaschine: {
         $homie: '3.0',
         $name: 'Waschmaschine',
@@ -46,9 +64,7 @@ export const SONOFF_MAPPING: HomieDevices = {
         $$sourceTopic: 'tele/sonoff/wama',
         $$commandTopic: 'cmnd/sonoff/wama',
         $$nodes: {
-            SP111: {
-                ...SP111_PROPERTIES
-            }
+            ...tasmotaNodeProperties
         }
     },
     geschirr: {
@@ -58,9 +74,7 @@ export const SONOFF_MAPPING: HomieDevices = {
         $$sourceTopic: 'tele/sonoff/geschirr',
         $$commandTopic: 'cmnd/sonoff/geschirr',
         $$nodes: {
-            SP111: {
-                ...SP111_PROPERTIES
-            }
+            ...tasmotaNodeProperties
         }
     },
     luftentfeuchter: {
@@ -70,9 +84,7 @@ export const SONOFF_MAPPING: HomieDevices = {
         $$sourceTopic: 'tele/sonoff/luftentfeuchter',
         $$commandTopic: 'cmnd/sonoff/luftentfeuchter',
         $$nodes: {
-            SP111: {
-                ...SP111_PROPERTIES
-            }
+            ...tasmotaNodeProperties
         }
     }
 };
