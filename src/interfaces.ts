@@ -9,6 +9,10 @@ export interface MqttServerConfig {
     password: string;
 }
 
+export interface SourceMqttServerConfig extends MqttServerConfig{
+    baseTopics: string[];
+}
+
 export interface HomieProperties {
     [key: string]: HomieProperty;
 }
