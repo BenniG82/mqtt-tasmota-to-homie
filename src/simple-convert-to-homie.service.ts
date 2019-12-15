@@ -149,6 +149,7 @@ export class SimpleConvertToHomieService {
 
                 const statsTopic = `${deviceTopic}/$stats`;
                 subj.next({topic: `${statsTopic}`, message: 'uptime,signal,battery,voltage,firstSeen,lastSeen'});
+                subj.next({logLevel: 'silly', topic: `${statsTopic}/interval`, message: stats.interval.toString(10)});
                 subj.next({logLevel: 'silly', topic: `${statsTopic}/uptime`, message: uptime.toString(10)});
                 subj.next({logLevel: 'silly', topic: `${statsTopic}/signal`, message: stats.signal.toString(10)});
                 subj.next({logLevel: 'silly', topic: `${statsTopic}/voltage`, message: stats.voltage.toString(10)});
