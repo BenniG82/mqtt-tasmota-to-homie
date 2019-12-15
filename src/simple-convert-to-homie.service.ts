@@ -123,7 +123,11 @@ export class SimpleConvertToHomieService {
                     myLogger.info(`Sending to ${msg.topic}: ${msg.message} for ${device.deviceName}`);
                 }
                 const opts: mqtt.IClientPublishOptions = {retain: true, qos: 1};
-                client.publish(msg.topic, msg.message.toString(), opts);
+                client.publish(msg.topic, msg.message.toString(), opts, (error => {
+                    if (error) {
+                        myLogger.error(`An error has occurred while sending a message to topic ${msg.topic}: ${error}`);
+                    }
+                }));
             });
         });
         const deviceTopic = `${this.baseHomieTopic}/${device.deviceName}`;
