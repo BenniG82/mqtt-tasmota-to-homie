@@ -1,8 +1,7 @@
 import { myLogger } from './logger';
 import * as mqtt from 'mqtt';
-import { IClientPublishOptions } from 'mqtt';
 import { MqttServerConfig } from './interfaces';
-import { ReplaySubject, Subject } from 'rxjs';
+import { ReplaySubject, Subject, timer } from 'rxjs';
 
 interface MessageProperty {
     name: string;
@@ -13,12 +12,24 @@ interface MessageProperty {
 interface MqttMessage {
     message: string;
     topic: string;
+    logLevel?: string;
+}
+
+interface HomieStats {
+    interval: number;
+    uptime: number;
+    signal: number;
+    voltage: number;
+    battery: number;
+    firstSeen: Date;
+    lastSeen: Date;
 }
 
 interface HomieDevice {
     client: mqtt.MqttClient;
     initializedNodes: Array<string>;
     messagesToSend: Subject<MqttMessage>;
+    stats: HomieStats;
 }
 
 interface DeviceMap {
@@ -32,8 +43,8 @@ interface DeviceWithNode {
 
 export class SimpleConvertToHomieService {
 
-    private devices: DeviceMap = {};
-    private baseHomieTopic = 'homie';
+    private readonly devices: DeviceMap = {};
+    private readonly baseHomieTopic = 'homie';
 
     private static guessType(value: any): string {
         switch (typeof value) {
@@ -46,20 +57,7 @@ export class SimpleConvertToHomieService {
         }
     }
 
-    constructor(private homieMqttConfig: MqttServerConfig) {
-    }
-
-    onMessage(baseTopic: string, topic: string, message: string): void {
-        const device = this.getDevice(baseTopic, topic);
-        myLogger.debug(`message received ${baseTopic} ${topic}, ${message} device ${device}`);
-
-        let initializedDevice: HomieDevice;
-        initializedDevice = this.devices[device.deviceName] ? this.devices[device.deviceName] : this.addDevice(device, message);
-        this.addNodeIfNecessary(initializedDevice, device, message);
-        this.updateState(initializedDevice, device, message);
-    }
-
-    private getDevice(baseTopic: string, topic: string): DeviceWithNode {
+    private static getDevice(baseTopic: string, topic: string): DeviceWithNode {
         const base = baseTopic.replace('#', '');
         const remainingTopicParts = topic.replace(base, '')
             .split('/');
@@ -71,18 +69,43 @@ export class SimpleConvertToHomieService {
 
     }
 
+    private static updateStats(homieDevice: HomieDevice, property: MessageProperty): void {
+        if (property.name === 'battery') {
+            homieDevice.stats.battery = property.value;
+        } else if (property.name === 'linkquality') {
+            homieDevice.stats.signal = property.value;
+        } else if (property.name === 'voltage') {
+            homieDevice.stats.voltage = property.value;
+        }
+    }
+
+    constructor(private readonly homieMqttConfig: MqttServerConfig) {
+    }
+
+    onMessage(baseTopic: string, topic: string, message: string): void {
+        const device = SimpleConvertToHomieService.getDevice(baseTopic, topic);
+        myLogger.debug(`message received ${baseTopic} ${topic}, ${message} device ${device.deviceName}`);
+
+        let initializedDevice: HomieDevice;
+        initializedDevice = this.devices[device.deviceName] || this.addDevice(device);
+        this.addNodeIfNecessary(initializedDevice, device, message);
+        this.updateState(initializedDevice, device, message);
+    }
+
     private updateState(homieDevice: HomieDevice, device: DeviceWithNode, message: string): void {
         myLogger.debug('Updating State');
+        homieDevice.stats.lastSeen = new Date();
         const deviceTopic = `${this.baseHomieTopic}/${device.deviceName}`;
         const nodeTopic = `${deviceTopic}/${device.node}`;
         this.disassembleMessage(message)
             .forEach((property: MessageProperty) => {
+                SimpleConvertToHomieService.updateStats(homieDevice, property);
                 const propertyTopic = `${nodeTopic}/${property.name}`;
                 homieDevice.messagesToSend.next({topic: `${propertyTopic}`, message: property.value});
             });
     }
 
-    private addDevice(device: DeviceWithNode, message: string): HomieDevice {
+    private addDevice(device: DeviceWithNode): HomieDevice {
         const subj = new ReplaySubject<MqttMessage>(1000, 5000);
         const client = mqtt.connect(this.homieMqttConfig.brokerUrl, {
             clientId: `General Purpose Mqtt To Homie writer for ${device.deviceName}`,
@@ -94,25 +117,68 @@ export class SimpleConvertToHomieService {
         client.on('connect', () => {
             myLogger.info(`Connected for device ${device.deviceName}`);
             subj.subscribe(msg => {
-                myLogger.info(`Sending to ${msg.topic}: ${msg.message}`);
-                client.publish(msg.topic, msg.message.toString(), {retain: true} as IClientPublishOptions);
+                if (msg.logLevel === 'silly') {
+                    myLogger.silly(`Sending to ${msg.topic}: ${msg.message} for ${device.deviceName}`);
+                } else {
+                    myLogger.info(`Sending to ${msg.topic}: ${msg.message} for ${device.deviceName}`);
+                }
+                const opts: mqtt.IClientPublishOptions = {retain: true, qos: 1};
+                client.publish(msg.topic, msg.message.toString(), opts);
             });
         });
         const deviceTopic = `${this.baseHomieTopic}/${device.deviceName}`;
+        const stats: HomieStats = {
+            firstSeen: new Date(),
+            interval: 120,
+            battery: 100,
+            voltage: 0,
+            lastSeen: new Date(),
+            signal: 0,
+            uptime: 0
+        };
+
         subj.next({topic: `${deviceTopic}/$homie`, message: '3.0'});
         subj.next({topic: `${deviceTopic}/$name`, message: device.deviceName});
         subj.next({topic: `${deviceTopic}/$state`, message: 'init'});
         subj.next({topic: `${deviceTopic}/$nodes`, message: ''});
 
-        return this.devices[device.deviceName] = {client, initializedNodes: [], messagesToSend: subj};
+        timer(0, stats.interval * 1000)
+            .subscribe(() => {
+                myLogger.silly(`Updating Stats for ${device.deviceName}`);
+                const uptime = Math.floor((new Date().getTime() - stats.firstSeen.getTime()) / 1000);
+
+                const statsTopic = `${deviceTopic}/$stats`;
+                subj.next({topic: `${statsTopic}`, message: 'uptime,signal,battery,voltage,firstSeen,lastSeen'});
+                subj.next({logLevel: 'silly', topic: `${statsTopic}/uptime`, message: uptime.toString(10)});
+                subj.next({logLevel: 'silly', topic: `${statsTopic}/signal`, message: stats.signal.toString(10)});
+                subj.next({logLevel: 'silly', topic: `${statsTopic}/voltage`, message: stats.voltage.toString(10)});
+                subj.next({logLevel: 'silly', topic: `${statsTopic}/battery`, message: stats.battery.toString(10)});
+                subj.next({logLevel: 'silly', topic: `${statsTopic}/firstSeen`, message: stats.firstSeen.toISOString()});
+                subj.next({logLevel: 'silly', topic: `${statsTopic}/lastSeen`, message: stats.lastSeen.toISOString()});
+
+                const lastSeenHours = (new Date().getTime() - stats.lastSeen.getTime()) / 1000 / 60 / 60;
+                if (lastSeenHours > 6) {
+                    subj.next({topic: `${deviceTopic}/$state`, message: 'lost'});
+                }
+            });
+
+        return this.devices[device.deviceName] = {
+            client: client,
+            initializedNodes: [],
+            messagesToSend: subj,
+            stats: stats
+        };
     }
 
     private addNodeIfNecessary(homieDevice: HomieDevice, device: DeviceWithNode, message: string): void {
-        if (homieDevice.initializedNodes.indexOf(device.node) >= 0) {
-            return;
-        }
+        // if (homieDevice.initializedNodes.indexOf(device.node) >= 0) {
+        //     return;
+        // }
         const deviceTopic = `${this.baseHomieTopic}/${device.deviceName}`;
-        homieDevice.initializedNodes.push(device.node);
+        if (!homieDevice.initializedNodes.includes(device.node)) {
+            homieDevice.initializedNodes.push(device.node);
+            myLogger.debug(`Adding previously unknown node ${device.node} for device ${device.deviceName}`);
+        }
         homieDevice.messagesToSend
             .next({topic: `${deviceTopic}/$nodes`, message: homieDevice.initializedNodes.join(',')});
 
@@ -155,6 +221,7 @@ export class SimpleConvertToHomieService {
                     }
                 );
             });
+        myLogger.debug(`Disassembled message ${message} contains ${properties.length} properties`);
 
         return properties;
     }

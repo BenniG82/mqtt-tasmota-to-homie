@@ -15,10 +15,10 @@ const publishOptions: mqtt.IClientPublishOptions = {retain: true, qos: 1};
 
 export class ConvertToHomieService {
     private readonly deviceTopic: string;
-    private commandMap: { [topic: string]: HomieProperty } = {};
+    private readonly commandMap: { [topic: string]: HomieProperty } = {};
     private client: mqtt.MqttClient;
-    private connect$$: Subject<void> = new Subject<void>();
-    private messages$$: Subject<MessageInTopic> = new Subject<MessageInTopic>();
+    private readonly connect$$: Subject<void> = new Subject<void>();
+    private readonly messages$$: Subject<MessageInTopic> = new Subject<MessageInTopic>();
 
     private static convertToMessageObject(messageInTopic: any, topic: string): any {
         const message = messageInTopic.message;
