@@ -13,6 +13,17 @@ export const tasmotaMqttConfig: TasmotaMqttConfig = {
 };
 
 /**
+ * Here we configure the mqtt server with the source topic layout for tasmota, may be the same as the Homie mqtt server
+ */
+export const sourceMqttConfigTasmota: SourceMqttServerConfig = {
+    brokerUrl: 'mqtt://10.8.0.62',
+    username: 'mqtt',
+    password: 'password',
+    baseTopics: ['tele/#', 'stat/#']
+    // baseTopics: ['stat/#']
+};
+
+/**
  * Here we configure the mqtt server with the source topic layout, may be the same as the Homie mqtt server
  */
 export const sourceMqttConfig: SourceMqttServerConfig = {

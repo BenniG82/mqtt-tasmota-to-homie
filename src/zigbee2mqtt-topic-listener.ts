@@ -1,11 +1,10 @@
-import { MqttServerConfig, SourceMqttServerConfig } from './interfaces';
+import { OnMessageHandler, SourceMqttServerConfig } from './interfaces';
 import { myLogger } from './logger';
 import * as mqtt from 'mqtt';
-import { SimpleConvertToHomieService } from './simple-convert-to-homie.service';
 
 export class Zigbee2mqttTopicListener {
 
-    static start(sourceMqttConfig: SourceMqttServerConfig, homieMqttConfig: MqttServerConfig): void {
+    static start(sourceMqttConfig: SourceMqttServerConfig, onMessageHandler: OnMessageHandler): void {
         myLogger.info('Starting Topic Listener');
         sourceMqttConfig.baseTopics.forEach(baseTopic => {
             const client = mqtt.connect(sourceMqttConfig.brokerUrl, {
@@ -14,7 +13,6 @@ export class Zigbee2mqttTopicListener {
                 password: sourceMqttConfig.password,
                 username: sourceMqttConfig.username
             });
-            const simpleHomie = new SimpleConvertToHomieService(homieMqttConfig);
             client.on('connect', () => {
                 myLogger.info('Connected');
 
@@ -35,8 +33,8 @@ export class Zigbee2mqttTopicListener {
                 myLogger.info('Closed');
             });
             client.on('message', (topic: string, message: string) => {
-                myLogger.debug(`message received ${topic}, ${message}`);
-                simpleHomie.onMessage(baseTopic, topic, message);
+                myLogger.silly(`message received ${topic}, ${message}`);
+                onMessageHandler.onMessage(baseTopic, topic, message);
             });
         });
     }

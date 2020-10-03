@@ -48,3 +48,7 @@ export interface HomieDevice {
 export interface HomieDevices {
     [key: string]: HomieDevice;
 }
+
+export interface OnMessageHandler {
+    onMessage(baseTopic: string, topic: string, message: string): void;
+}

@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tasmota": "npx ts-node src/index.ts"
   },
   "author": "Benjamin Gniza",
   "license": "ISC",
