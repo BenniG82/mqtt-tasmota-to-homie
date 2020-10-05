@@ -1,3 +1,5 @@
+import { MqttClient } from 'mqtt';
+
 export interface TasmotaMqttConfig {
     mqtt: MqttServerConfig;
     baseTasmotaTopic: string;
@@ -50,5 +52,6 @@ export interface HomieDevices {
 }
 
 export interface OnMessageHandler {
+    senderClient: MqttClient;
     onMessage(baseTopic: string, topic: string, message: string): void;
 }

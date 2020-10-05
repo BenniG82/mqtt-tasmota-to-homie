@@ -5,7 +5,7 @@ import { HomieDevices, HomieNodes, MqttServerConfig, SourceMqttServerConfig, Tas
  */
 export const tasmotaMqttConfig: TasmotaMqttConfig = {
     mqtt: {
-        brokerUrl: 'mqtt://10.8.0.62',
+        brokerUrl: 'mqtt://192.168.0.45',
         username: 'mqtt',
         password: 'password'
     },
@@ -16,7 +16,7 @@ export const tasmotaMqttConfig: TasmotaMqttConfig = {
  * Here we configure the mqtt server with the source topic layout for tasmota, may be the same as the Homie mqtt server
  */
 export const sourceMqttConfigTasmota: SourceMqttServerConfig = {
-    brokerUrl: 'mqtt://10.8.0.62',
+    brokerUrl: 'mqtt://192.168.0.45',
     username: 'mqtt',
     password: 'password',
     baseTopics: ['tele/#', 'stat/#']
@@ -27,7 +27,7 @@ export const sourceMqttConfigTasmota: SourceMqttServerConfig = {
  * Here we configure the mqtt server with the source topic layout, may be the same as the Homie mqtt server
  */
 export const sourceMqttConfig: SourceMqttServerConfig = {
-    brokerUrl: 'mqtt://10.8.0.62',
+    brokerUrl: 'mqtt://192.168.0.45',
     username: 'mqtt',
     password: 'password',
     baseTopics: ['zigbee2mqtt/#']
@@ -37,7 +37,7 @@ export const sourceMqttConfig: SourceMqttServerConfig = {
  * Here we configure the mqtt server with the Homie topic layout, may be the same as the Tasmota mqtt server
  */
 export const homieMqttConfig: MqttServerConfig = {
-    brokerUrl: 'mqtt://10.8.0.62',
+    brokerUrl: 'mqtt://192.168.0.45',
     username: 'mqtt',
     password: 'password'
 };

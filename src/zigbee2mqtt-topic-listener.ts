@@ -13,6 +13,7 @@ export class Zigbee2mqttTopicListener {
                 password: sourceMqttConfig.password,
                 username: sourceMqttConfig.username
             });
+            onMessageHandler.senderClient = client;
             client.on('connect', () => {
                 myLogger.info('Connected');
 
