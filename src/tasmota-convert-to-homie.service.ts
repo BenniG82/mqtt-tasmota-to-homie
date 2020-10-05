@@ -196,10 +196,10 @@ export class TasmotaConvertToHomieService implements OnMessageHandler {
         client.on('connect', () => {
             myLogger.info(`Connected for device ${deviceName}`);
             subj.subscribe(msg => {
-                if (msg.logLevel === 'silly') {
-                    myLogger.silly(`Sending to ${msg.topic}: ${msg.message} for ${deviceName}`);
-                } else {
+                if (msg.logLevel === 'info') {
                     myLogger.info(`Sending to ${msg.topic}: ${msg.message} for ${deviceName}`);
+                } else {
+                    myLogger.silly(`Sending to ${msg.topic}: ${msg.message} for ${deviceName}`);
                 }
                 const opts: mqtt.IClientPublishOptions = {retain: true, qos: 1};
                 client.publish(msg.topic, msg.message.toString(), opts, (error => {
@@ -235,6 +235,7 @@ export class TasmotaConvertToHomieService implements OnMessageHandler {
         }
 
         if (homieDevice.requiredNodes.every(required => homieDevice.nodes.some(node => node.nodeId === required))) {
+            myLogger.info(`All required nodes are available Device ${homieDevice.name} will become ready`);
             stateChangeNeeded = true;
         }
 
@@ -341,7 +342,7 @@ export class TasmotaConvertToHomieService implements OnMessageHandler {
 
     private disassembleMessage(msg: string, nodeName?: string): NodeNameWithProperties {
         const message = msg.toString();
-        myLogger.debug(`Disassemble message ${message}`);
+        myLogger.silly(`Disassemble message ${message}`);
         if (!message.startsWith('{') || !message.endsWith('}')) {
             let name = 'value';
             let type = 'string';
@@ -369,7 +370,7 @@ export class TasmotaConvertToHomieService implements OnMessageHandler {
         }
         this.flattenObject('', jsonMessage, properties);
 
-        myLogger.debug(`Disassembled message ${message} contains ${properties.length} properties`);
+        myLogger.silly(`Disassembled message ${message} contains ${properties.length} properties`);
 
         return {name: name, properties: properties};
     }
