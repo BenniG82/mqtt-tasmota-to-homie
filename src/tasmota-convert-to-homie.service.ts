@@ -414,7 +414,7 @@ export class TasmotaConvertToHomieService implements OnMessageHandler {
         if (!topic.endsWith('set') || homieMsg === '') {
             return;
         }
-        myLogger.debug(`homie set message received ${topic}, ${homieMsg}`);
+        myLogger.info(`homie set message received ${topic}, ${homieMsg}`);
         const propertyTopic = topic.replace(/\/set/, '');
         const subtopics = this.getSubTopics('homie/#', topic);
         const deviceId = subtopics[0];
@@ -430,6 +430,8 @@ export class TasmotaConvertToHomieService implements OnMessageHandler {
             const msg = property.name === 'powerSwitch' ? (homieMsg === 'true' ? 'ON' : 'OFF') : homieMsg;
             this.senderClient.publish(property.commandTopic, msg);
             device.messagesToSend.next({topic, message: '', logLevel: 'silly'});
+        } else {
+            myLogger.warn(`Could not send message received on topic ${topic}, ${homieMsg} property: ${property}`);
         }
     }
 }
