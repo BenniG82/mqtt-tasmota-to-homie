@@ -43,6 +43,7 @@ interface DeviceWithNode {
 }
 
 export class SimpleConvertToHomieService implements OnMessageHandler {
+    senderClient: mqtt.MqttClient;
 
     private readonly devices: DeviceMap = {};
     private readonly baseHomieTopic = 'homie';
