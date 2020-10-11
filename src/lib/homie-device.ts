@@ -32,7 +32,10 @@ export class HomieDevice implements HomieDeviceProperties {
 
         this.nodes.forEach(node => {
             const homieNodeTopic = node.nodeTopic;
-            const properties = node.properties;
+            const additionalProperties = (node.customProperties ?? [])
+                .filter(cust => !node.properties.find(prop => prop.name === cust.name));
+
+            const properties = [...node.properties, ...additionalProperties];
             this.messagesToSend.next({topic: `${homieNodeTopic}/$name`, message: node.nodeName});
             this.messagesToSend.next({topic: `${homieNodeTopic}/$type`, message: 'nodeType'});
             this.messagesToSend.next({
@@ -92,7 +95,11 @@ export class HomieDevice implements HomieDeviceProperties {
         homieDevice.updateLastSeen();
         node.properties.forEach(property => {
             this.updateStats(property);
-            homieDevice.messagesToSend.next({topic: `${property.propertyTopic}`, message: property.value, logLevel: 'silly'});
+            homieDevice.messagesToSend.next({
+                topic: `${property.propertyTopic}`,
+                message: property.value,
+                noRetain: property.noRetain
+            });
         });
     }
 
@@ -100,17 +107,32 @@ export class HomieDevice implements HomieDeviceProperties {
         return this.nodes.find(n => n.nodeId === nodeId);
     }
 
-    addNode(nodeId: string, friendlyName: string, applyProperties: (node: DeviceNode) => Array<NodeProperty>): DeviceNode {
-        const node: DeviceNode = {
-            nodeId: nodeId,
-            nodeTopic: `${this.deviceTopic}/${nodeId}`,
-            device: this,
-            nodeName: friendlyName ?? nodeId
-        };
-        node.properties = applyProperties(node);
-        this.nodes.push(node);
-        this.sendNodePropertyValues(node);
-        this.updateNodes();
+    findOrAddNode(nodeId: string,
+                  friendlyName: string,
+                  applyProperties: (node: DeviceNode) => Array<NodeProperty>,
+                  applyCustomProperties?: (node: DeviceNode) => Array<NodeProperty>): DeviceNode {
+        let node = this.getNodeById(nodeId);
+        if (!node) {
+            node = {
+                nodeId: nodeId,
+                nodeTopic: `${this.deviceTopic}/${nodeId}`,
+                device: this,
+                nodeName: friendlyName ?? nodeId,
+                homeInitialized: false
+            };
+            this.nodes.push(node);
+        }
+        if (applyProperties) {
+            node.properties = applyProperties(node);
+        }
+        if (applyCustomProperties) {
+            node.customProperties = applyCustomProperties(node);
+        }
+        if (!node.homeInitialized && node.properties && node.properties.length > 0) {
+            node.homeInitialized = true;
+            this.sendNodePropertyValues(node);
+            this.updateNodes();
+        }
 
         return node;
     }

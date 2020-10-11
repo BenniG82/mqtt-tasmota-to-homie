@@ -2,6 +2,7 @@ import { SourceTopicListener } from './lib/source-topic-listener';
 import { MqttConvertToHomieService } from './lib/mqtt-convert-to-homie-service';
 import { AdditionalConfiguration, SourceMqttServerConfig } from './lib/interfaces';
 import { msg } from './lib/util';
+import { Zigbee2mqttConvertToHomieService } from './lib/zigbee2mqtt-convert-to-homie.service';
 
 /**
  * Here we configure the mqtt server with the source topic layout for tasmota, may be the same as the Homie mqtt server
@@ -22,7 +23,9 @@ export const sourceMqttConfig: SourceMqttServerConfig = {
     password: 'password',
     baseTopics: ['zigbee2mqtt/#']
 };
-SourceTopicListener.start(sourceMqttConfig, new MqttConvertToHomieService(sourceMqttConfig));
+SourceTopicListener.start(sourceMqttConfig, new Zigbee2mqttConvertToHomieService(sourceMqttConfig), {
+    initMessages: [msg('zigbee2mqtt/bridge/config/devices/get', '')]
+});
 
 const periodicalMessages = [
     msg('cmnd/tasmotas/status', '0'),

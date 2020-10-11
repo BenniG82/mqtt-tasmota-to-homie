@@ -6,6 +6,7 @@ export interface MqttMessage {
     topic: string;
     message: string;
     logLevel?: string;
+    noRetain?: boolean;
 }
 
 export interface MqttServerConfig {
@@ -36,6 +37,8 @@ export interface DeviceNode {
     nodeTopic: string;
     device: HomieDevice;
     properties?: Array<NodeProperty>;
+    customProperties?: Array<NodeProperty>;
+    homeInitialized: boolean;
 }
 
 export interface HomieStats {
@@ -57,6 +60,7 @@ export interface NodeProperty {
     propertyTopic?: string;
     commandTopic?: string;
     homieSubscription?: boolean;
+    noRetain?: boolean;
 }
 
 export interface HomieDeviceProperties {

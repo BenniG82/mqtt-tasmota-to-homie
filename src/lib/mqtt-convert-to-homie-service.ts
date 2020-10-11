@@ -13,6 +13,8 @@ interface NodeNameWithProperties {
     properties: Array<NodeProperty>;
 }
 
+export const SINGLE_NODE_NAME = 'requiredNode';
+
 export class MqttConvertToHomieService implements OnMessageHandler {
 
     senderClient: mqtt.MqttClient;
@@ -75,7 +77,7 @@ export class MqttConvertToHomieService implements OnMessageHandler {
         myLogger.debug(`message received ${baseTopic} ${topic}, ${message} device ${deviceName}`);
 
         let homieDevice: HomieDevice;
-        homieDevice = this.devices[deviceName];
+        homieDevice = this.getDevice(deviceName);
         if (!homieDevice) {
             if (topic.startsWith('stat/') && topic.endsWith('STATUS')) {
                 homieDevice = this.createAndRegisterDevice(deviceName, message);
@@ -93,19 +95,39 @@ export class MqttConvertToHomieService implements OnMessageHandler {
         }
 
         const subTopics = MqttConvertToHomieService.getSubTopics(baseTopic, topic);
-        const nodeId = subTopics[1] || 'requiredNode';
+        const nodeId = subTopics[1] || SINGLE_NODE_NAME;
         const node = this.findOrAddNodeForMessage(homieDevice, nodeId, message);
         homieDevice.sendNodePropertyValues(node);
     }
 
-    private createAndRegisterDevice(deviceName: string, message: string): HomieDevice {
+    protected getDevice(deviceName: string): HomieDevice | undefined {
+        return this.devices[deviceName];
+    }
+
+    protected findOrAddNodeForMessage(homieDevice: HomieDevice, nodeId: string, message: string): DeviceNode {
+        const nodeNameWithProperties = this.disassembleMessage(message, nodeId);
+        const applyProperties = (node: DeviceNode) => nodeNameWithProperties.properties
+            .map(p => ({
+                ...p,
+                propertyTopic: `${node.nodeTopic}/${p.name}`,
+                commandTopic: p.settable ? `cmnd/${homieDevice.id}/${node.nodeId}` : undefined
+            }));
+
+        return homieDevice.findOrAddNode(nodeId, nodeNameWithProperties.name, applyProperties);
+    }
+
+    protected createAndRegisterDevice(deviceName: string, message: string): HomieDevice {
         if (!message || !MqttConvertToHomieService.isJsonMessage(message)) {
             return undefined;
         }
-        const subj = new ReplaySubject<MqttMessage>(1000, 5000);
         const jsonMessage = JSON.parse(message);
         const friendlyName = jsonMessage?.Status?.FriendlyName.length === 1 ? jsonMessage?.Status?.FriendlyName[0] : deviceName;
 
+        return this.createAndRegisterDeviceWithName(deviceName, friendlyName);
+    }
+
+    protected createAndRegisterDeviceWithName(deviceId: string, friendlyName?: string): HomieDevice {
+        const subj = new ReplaySubject<MqttMessage>(1000, 5000);
         const stats: HomieStats = {
             firstSeen: new Date(),
             interval: 120,
@@ -115,9 +137,9 @@ export class MqttConvertToHomieService implements OnMessageHandler {
             signal: 0,
             uptime: 0
         };
-        const deviceTopic = `${this.baseHomieTopic}/${deviceName}`;
+        const deviceTopic = `${this.baseHomieTopic}/${deviceId}`;
         const client = mqtt.connect(this.homieMqttConfig.brokerUrl, {
-            clientId: `General Purpose Mqtt To Homie writer for ${deviceName}`,
+            clientId: `General Purpose Mqtt To Homie writer for ${deviceId}`,
             keepalive: 60,
             password: this.homieMqttConfig.password,
             username: this.homieMqttConfig.username,
@@ -126,8 +148,8 @@ export class MqttConvertToHomieService implements OnMessageHandler {
             will: {topic: `${deviceTopic}/$state`, payload: 'lost', qos: 1, retain: true}
         });
         const homieDevice = new HomieDevice({
-            id: deviceName,
-            name: friendlyName ?? deviceName,
+            id: deviceId,
+            name: friendlyName ?? deviceId,
             nodes: [],
             messagesToSend: subj,
             stats: stats,
@@ -138,14 +160,14 @@ export class MqttConvertToHomieService implements OnMessageHandler {
         });
 
         client.on('connect', () => {
-            myLogger.info(`Connected for device ${deviceName}`);
+            myLogger.info(`Connected for device ${deviceId}`);
             subj.subscribe(msg => {
                 if (msg.logLevel === 'info') {
-                    myLogger.info(`Sending to ${msg.topic}: ${msg.message} for ${deviceName}`);
+                    myLogger.info(`Sending to ${msg.topic}: ${msg.message} for ${deviceId}`);
                 } else {
-                    myLogger.silly(`Sending to ${msg.topic}: ${msg.message} for ${deviceName}`);
+                    myLogger.silly(`Sending to ${msg.topic}: ${msg.message} for ${deviceId}`);
                 }
-                const opts: mqtt.IClientPublishOptions = {retain: true, qos: 1};
+                const opts: mqtt.IClientPublishOptions = {retain: !msg.noRetain, qos: 1};
                 client.publish(msg.topic, msg.message.toString(), opts, (error => {
                     if (error) {
                         myLogger.error(`An error has occurred while sending a message to topic ${msg.topic}: ${error}`);
@@ -160,28 +182,7 @@ export class MqttConvertToHomieService implements OnMessageHandler {
 
         homieDevice.init();
 
-        return this.devices[deviceName] = homieDevice;
-    }
-
-    private findOrAddNodeForMessage(homieDevice: HomieDevice, nodeId: string, message: string): DeviceNode {
-        const nodeNameWithProperties = this.disassembleMessage(message, nodeId);
-        const applyProperties = (node: DeviceNode) => nodeNameWithProperties.properties
-            .map(p => ({
-                ...p,
-                propertyTopic: `${node.nodeTopic}/${p.name}`,
-                commandTopic: p.settable ? `cmnd/${homieDevice.id}/${node.nodeId}` : undefined
-            }));
-
-        const node = homieDevice.getNodeById(nodeId);
-        if (node) {
-            node.properties = applyProperties(node);
-
-            return node;
-        }
-
-        myLogger.debug(`Adding previously unknown node ${nodeId} for device ${homieDevice.id}`);
-
-        return homieDevice.addNode(nodeId, nodeNameWithProperties.name, applyProperties);
+        return this.devices[deviceId] = homieDevice;
     }
 
     private disassembleMessage(msg: string, nodeName?: string): NodeNameWithProperties {
