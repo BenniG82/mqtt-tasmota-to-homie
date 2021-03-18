@@ -186,37 +186,44 @@ export class MqttConvertToHomieService implements OnMessageHandler {
     }
 
     private disassembleMessage(msg: string, nodeName?: string): NodeNameWithProperties {
-        const message = msg.toString();
-        myLogger.silly(`Disassemble message ${message}`);
-        if (!MqttConvertToHomieService.isJsonMessage(message)) {
-            let name = 'value';
-            let type = 'string';
-            let value: any = message;
-            let settable: boolean;
+        try {
+            const message = msg.toString();
+            myLogger.silly(`Disassemble message ${message}`);
+            if (!MqttConvertToHomieService.isJsonMessage(message)) {
+                let name = 'value';
+                let type = 'string';
+                let value: any = message;
+                let settable: boolean;
 
-            const match = nodeName.match(/POWER(.*)/);
-            if (!!match) {
-                name = `powerSwitch${match[1]}`;
-                type = 'boolean';
-                settable = true;
-                value = message === 'ON';
+                const match = nodeName.match(/POWER(.*)/);
+                if (!!match) {
+                    name = `powerSwitch${match[1]}`;
+                    type = 'boolean';
+                    settable = true;
+                    value = message === 'ON';
+                }
+
+                return {properties: [{name, type, settable, value}]};
             }
+            let jsonMessage = JSON.parse(message);
+            const properties = new Array<NodeProperty>();
+            const msgKeys = Object.keys(jsonMessage);
+            let name;
+            if (msgKeys.length === 1) {
+                name = msgKeys[0];
+                jsonMessage = jsonMessage[msgKeys[0]];
+            }
+            this.flattenObject('', jsonMessage, properties, nodeName);
 
-            return {properties: [{name, type, settable, value}]};
+            myLogger.silly(`Disassembled message ${message} contains ${properties.length} properties`);
+
+            return {name: name, properties: properties};
+        } catch (e) {
+            myLogger.error('Catched error', e);
+            console.error(e);
+
+            return {properties: []};
         }
-        let jsonMessage = JSON.parse(message);
-        const properties = new Array<NodeProperty>();
-        const msgKeys = Object.keys(jsonMessage);
-        let name;
-        if (msgKeys.length === 1) {
-            name = msgKeys[0];
-            jsonMessage = jsonMessage[msgKeys[0]];
-        }
-        this.flattenObject('', jsonMessage, properties, nodeName);
-
-        myLogger.silly(`Disassembled message ${message} contains ${properties.length} properties`);
-
-        return {name: name, properties: properties};
     }
 
     private flattenObject(prefix: string, value: any, properties: Array<NodeProperty>, nodeName: string): void {
