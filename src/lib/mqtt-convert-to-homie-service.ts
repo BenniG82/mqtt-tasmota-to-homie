@@ -219,7 +219,7 @@ export class MqttConvertToHomieService implements OnMessageHandler {
 
             return {name: name, properties: properties};
         } catch (e) {
-            myLogger.error('Catched error', e);
+            myLogger.error('Catched error while dissasembling message ' + msg + ' for node ' + nodeName, e);
             console.error(e);
 
             return {properties: []};
